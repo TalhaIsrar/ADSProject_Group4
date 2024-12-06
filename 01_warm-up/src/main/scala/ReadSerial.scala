@@ -31,25 +31,27 @@ class Controller extends Module{
 
 }
 
+// Object to save states
+object Counter {
+  object State extends ChiselEnum {
+    val sRst, sCnt, sDone = Value
+  }
+}
 
 /** counter class */
 class Counter extends Module{
   
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a the component as stated in the documentation
-     */
+    val reset_n = Input(UInt(1.W))
+    val cnt_en = Input(UInt(1.W))
+    val cnt_s = Output(UInt(1.W))
     })
 
   // internal variables
-  /* 
-   * TODO: Define internal variables (registers and/or wires), if needed
-   */
+  val Reg = RegInit(0.U(4.W))
 
   // state machine
-  /* 
-   * TODO: Describe functionality if the counter as a state machine
-   */
+  
 
 
 }
