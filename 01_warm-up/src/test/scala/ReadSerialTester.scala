@@ -20,7 +20,7 @@ class ReadSerialTester extends AnyFlatSpec with ChiselScalatestTester {
     test(new ReadSerial).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
         /*** check non-consecutive input ***/
         { 
-          // assset rst and set rxd
+          // assert rst and set rxd
           dut.io.valid.expect(0.B)
           dut.io.rxd.poke(1.B)
           dut.io.reset_n.poke(1.B)
