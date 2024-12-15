@@ -62,8 +62,8 @@ class RV32Icore (BinaryFile: String) extends Module {
   // Instruction Memory
   // -----------------------------------------
 
-  val IMem = Mem(4096, UInt(32.W))
-  loadMemoryFromFile(IMem, BinaryFile)
+    val IMem = Mem(4096, UInt(32.W))
+    loadMemoryFromFile(IMem, BinaryFile)
 
   // -----------------------------------------
   // CPU Registers
@@ -72,12 +72,12 @@ class RV32Icore (BinaryFile: String) extends Module {
   /*
    * TODO: Implement the program counter as a register, initialize with zero
    */
-
+  val PC = RegInit(0.U(16.W))
   val regFile = Mem(32, UInt(32.W))
   /*
    * TODO: hard-wire register x0 to zero
    */
-
+   regFile(0.U) := 0.U
   // -----------------------------------------
   // Fetch
   // -----------------------------------------
@@ -90,48 +90,105 @@ class RV32Icore (BinaryFile: String) extends Module {
   // -----------------------------------------
 
   val opcode = instr(6, 0)
-  /*
-   * TODO: Add missing fields from fetched instructions for decoding
-   */
-
-  val isADD  = (opcode === "b0110011".U && funct3 === "b000".U && funct7 === "b0000000".U)
-  /*
-   * TODO: Add missing R-Type instructions here
-   */
-
+  val funct3 = instr(14, 12)
+  val funct7 = instr(31, 25)
 
   val isADDI = (opcode === "b0010011".U && funct3 === "b000".U)
-
+  val isADD  = (opcode === "b0110011".U && funct3 === "b000".U && funct7 === "b0000000".U)
+  val isSUB = (opcode === "b0110011".U && funct3 === "b000".U && funct7 === "b0100000".U)
+  val isSLT = (opcode === "b0110011".U && funct3 === "b010".U && funct7 === "b0000000".U)
+  val isSLTU = (opcode === "b0110011".U && funct3 === "b011".U && funct7 === "b0000000".U)
+  val isSLL = (opcode === "b0110011".U && funct3 === "b001".U && funct7 === "b0000000".U)
+  val isSRL = (opcode === "b0110011".U && funct3 === "b101".U && funct7 === "b0000000".U)
+  val isSRA = (opcode === "b0110011".U && funct3 === "b101".U && funct7 === "b0100000".U)
+  val isAND = (opcode === "b0110011".U && funct3 === "b111".U && funct7 === "b0000000".U)
+  val isOR = (opcode === "b0110011".U && funct3 === "b110".U && funct7 === "b0000000".U)
+  val isXOR = (opcode === "b0110011".U && funct3 === "b100".U && funct7 === "b0000000".U)
 
   // Operands
+  val rs1 = Wire(UInt(32.W))
+  val rs2 = Wire(UInt(32.W))
+  val rd = Wire(UInt(32.W))
+
+  val rs1_Int = Wire(SInt(32.W))
+  val rs2_Int = Wire(SInt(32.W))
+
+  // option 1 for extend the signed-12bit immediate
+//   val extendedImmUnsigned = Cat(Fill(20, instr(31)), instr(31, 20))
+
+  // option 2 for extend the signed-12bit immediate
+  val imm12 = Wire(SInt(12.W))
+  imm12 := instr(31, 20).asSInt
+  val extendedImm = Wire(SInt(32.W))
+  extendedImm := imm12.asSInt
+  val extendedImmUnsigned = extendedImm.asUInt
 
    /*
    * TODO: Add operand signals accoring to specification
    */
+   rs2 := regFile(instr(24, 20))
+   rs1 := regFile(instr(19, 15))
+   regFile(instr(11, 7)) := rd
+
+   // cast operand from UInt to Int
+   rs2_Int := rs2.asSInt
+   rs1_Int := rs1.asSInt
 
   // -----------------------------------------
   // Execute
   // -----------------------------------------
 
   val aluResult = Wire(UInt(32.W)) 
-
-  when(isADDI) { 
-    aluResult := operandA + operandB 
-  }.elsewhen(isADD) {                           
-    aluResult := operandA + operandB 
+  when(isADDI){ 
+    aluResult := extendedImmUnsigned + rs1  
+  }.elsewhen(isADD){                            
+    aluResult := rs1 + rs2  
+  }.elsewhen(isSUB){
+    aluResult := rs1 - rs2
+  }.elsewhen(isSLT){
+    when(rs1_Int < rs2_Int){
+      aluResult := 1.U
+    }.otherwise{
+      aluResult := 0.U
+    }
+  }.elsewhen(isSLTU){
+    when(instr(19, 15) === "b00000".U){
+      when(rs2 =/= 0.U){
+        aluResult := 1.U
+      }.otherwise{
+        aluResult := 0.U
+      }
+    }.otherwise{
+      when(rs1 < rs2){
+        aluResult := 1.U
+      }.otherwise{
+        aluResult := 0.U
+      }
+    }
+  }.elsewhen(isSLL){
+    aluResult := rs1 << (rs2(4, 0))
+  }.elsewhen(isSRL){
+    aluResult := rs1 >> (rs2(4, 0))    
+  }.elsewhen(isSRA){
+    aluResult := (rs1_Int >> (rs2(4, 0))).asUInt 
+  }.elsewhen(isAND){
+    aluResult := rs1 & rs2
+  }.elsewhen(isOR){
+    aluResult := rs1 | rs2
+  }.elsewhen(isXOR){
+    aluResult := rs1 ^ rs2
+  }.otherwise{
+    aluResult := "hFFFFFFFF".U //default case
   }
   /*
    * TODO: Add missing R-Type instructions here. Do not forget to implement a suitable default case for
    *       fetched instructions that are neither R-Type nor ADDI. 
    */
-
-
   // -----------------------------------------
   // Memory
   // -----------------------------------------
 
   // No memory operations implemented in this basic CPU
-
 
   // -----------------------------------------
   // Write Back 
@@ -143,15 +200,16 @@ class RV32Icore (BinaryFile: String) extends Module {
   /*
    * TODO: Store "writeBackData" in register "rd" in regFile
    */
+  rd := writeBackData
 
   // Check Result
   /*
    * TODO: Propagate "writeBackData" to the "check_res" output for testing purposes
    */
-  io.check_res := 0.U
-
+  io.check_res := writeBackData
   // Update PC
   // no jumps or branches, next PC always reads next address from IMEM
+  PC := PC + 4.U
   /*
    * TODO: Increment PC
    */

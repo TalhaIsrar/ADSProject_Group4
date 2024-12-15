@@ -18,8 +18,6 @@ class SimpleRV32I (BinaryFile: String) extends Module {
     })
   
   val core = Module(new RV32Icore(BinaryFile))
-
   io.result       := core.io.check_res
-
 }
 
