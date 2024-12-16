@@ -6,3 +6,21 @@
 /* 
  * TODO: Add testcases for all R-type instructions in 'BinaryFile' and check the expected results here
  */
+
+00a00093 //ADDI x1, x0, 10       x1 = 10
+01400113 //ADDI x2, x0, 20       x2 = 20
+00500193 //ADDI x3, x0, 5        x3 = 5
+00f00213 //ADDI x4, x0, 15       x4 = 15
+00700293 //ADDI x5, x0, 7        x5 = 7
+00300313 //ADDI x6, x0, 3        x6 = 3
+002083b3 //ADD x7, x1, x2        x7 = x1 + x2 = 30
+40320433 //SUB x8, x4, x3        x8 = x4 - x3 = 10
+0062a4b3 //SLT x9, x5, x6        x9 = (x5 < x6) = 0
+00533533 //SLTU x10, x6, x5      x10 = (x6 < x5 unsigned) = 1
+0020f5b3 //AND x11, x1, x2       x11 = x1 & x2 = 10 & 20 = 0
+0030e633 //OR x12, x1, x3        x12 = x1 | x3 = 10 | 5 = 15
+005246b3 //XOR x13, x4, x5       x13 = x4 ^ x5 = 15 ^ 7 = 8
+00619733 //SLL x14, x3, x6       x14 = x3 << x6 = 5 << 3 = 40
+006257b3 //SRL x15, x4, x6       x15 = x4 >> x6 = 15 >> 3 = 1
+40625833 //SRA x16, x4, x6       x16 = x4 >>> x6 = 15 >>> 3 = 1 (arithmetic shift)
+008388b3 //ADD x17, x7, x8       x17 = x7 + x8 = 30 + 10 = 40
