@@ -24,3 +24,6 @@
 006257b3 //SRL x15, x4, x6       x15 = x4 >> x6 = 15 >> 3 = 1
 40625833 //SRA x16, x4, x6       x16 = x4 >>> x6 = 15 >>> 3 = 1 (arithmetic shift)
 008388b3 //ADD x17, x7, x8       x17 = x7 + x8 = 30 + 10 = 40
+00a88913 //ADDI x18, x17, 10     x18 = x17 + 10 = 50
+0000b9b3 //SLTU x19, x1, x0      x19 = (x1 < x0 unsigned) = 0
+00000013 //ADDI x0, x0, 0        x0 = 0 (NOP)
