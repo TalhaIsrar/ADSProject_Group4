@@ -92,26 +92,29 @@ class RV32Icore (BinaryFile: String) extends Module {
   val opcode = instr(6, 0)
   val funct3 = instr(14, 12)
   val funct7 = instr(31, 25)
+  val rs2 = instr(24, 20)
+  val rs1 = instr(19,15)
+  val rd = instr(11, 7)
 
   val isADDI = (opcode === "b0010011".U && funct3 === "b000".U)
   val isADD  = (opcode === "b0110011".U && funct3 === "b000".U && funct7 === "b0000000".U)
-  val isSUB = (opcode === "b0110011".U && funct3 === "b000".U && funct7 === "b0100000".U)
-  val isSLT = (opcode === "b0110011".U && funct3 === "b010".U && funct7 === "b0000000".U)
+  val isSUB  = (opcode === "b0110011".U && funct3 === "b000".U && funct7 === "b0100000".U)
+  val isSLT  = (opcode === "b0110011".U && funct3 === "b010".U && funct7 === "b0000000".U)
   val isSLTU = (opcode === "b0110011".U && funct3 === "b011".U && funct7 === "b0000000".U)
-  val isSLL = (opcode === "b0110011".U && funct3 === "b001".U && funct7 === "b0000000".U)
-  val isSRL = (opcode === "b0110011".U && funct3 === "b101".U && funct7 === "b0000000".U)
-  val isSRA = (opcode === "b0110011".U && funct3 === "b101".U && funct7 === "b0100000".U)
-  val isAND = (opcode === "b0110011".U && funct3 === "b111".U && funct7 === "b0000000".U)
-  val isOR = (opcode === "b0110011".U && funct3 === "b110".U && funct7 === "b0000000".U)
-  val isXOR = (opcode === "b0110011".U && funct3 === "b100".U && funct7 === "b0000000".U)
+  val isSLL  = (opcode === "b0110011".U && funct3 === "b001".U && funct7 === "b0000000".U)
+  val isSRL  = (opcode === "b0110011".U && funct3 === "b101".U && funct7 === "b0000000".U)
+  val isSRA  = (opcode === "b0110011".U && funct3 === "b101".U && funct7 === "b0100000".U)
+  val isAND  = (opcode === "b0110011".U && funct3 === "b111".U && funct7 === "b0000000".U)
+  val isOR   = (opcode === "b0110011".U && funct3 === "b110".U && funct7 === "b0000000".U)
+  val isXOR  = (opcode === "b0110011".U && funct3 === "b100".U && funct7 === "b0000000".U)
 
   // Operands
-  val rs1 = Wire(UInt(32.W))
-  val rs2 = Wire(UInt(32.W))
-  val rd = Wire(UInt(32.W))
+  val operandA = Wire(UInt(32.W))
+  val operandB = Wire(UInt(32.W))
+  val result = Wire(UInt(32.W))
 
-  val rs1_Int = Wire(SInt(32.W))
-  val rs2_Int = Wire(SInt(32.W))
+  val operandA_Int = Wire(SInt(32.W))
+  val operandB_Int = Wire(SInt(32.W))
 
   // option 1 for extend the signed-12bit immediate
 //   val extendedImmUnsigned = Cat(Fill(20, instr(31)), instr(31, 20))
@@ -126,13 +129,13 @@ class RV32Icore (BinaryFile: String) extends Module {
    /*
    * TODO: Add operand signals accoring to specification
    */
-   rs2 := regFile(instr(24, 20))
-   rs1 := regFile(instr(19, 15))
-   regFile(instr(11, 7)) := rd
+   operandA := regFile(rs1)
+   operandB := regFile(rs2)
+   regFile(rd) := result
 
    // cast operand from UInt to Int
-   rs2_Int := rs2.asSInt
-   rs1_Int := rs1.asSInt
+   operandA_Int := operandA.asSInt
+   operandB_Int := operandB.asSInt
 
   // -----------------------------------------
   // Execute
@@ -140,43 +143,43 @@ class RV32Icore (BinaryFile: String) extends Module {
 
   val aluResult = Wire(UInt(32.W)) 
   when(isADDI){ 
-    aluResult := extendedImmUnsigned + rs1  
+    aluResult := extendedImmUnsigned + operandA  
   }.elsewhen(isADD){                            
-    aluResult := rs1 + rs2  
+    aluResult := operandA + operandB  
   }.elsewhen(isSUB){
-    aluResult := rs1 - rs2
+    aluResult := operandA - operandB
   }.elsewhen(isSLT){
-    when(rs1_Int < rs2_Int){
+    when(operandA_Int < operandB_Int){
       aluResult := 1.U
     }.otherwise{
       aluResult := 0.U
     }
   }.elsewhen(isSLTU){
     when(instr(19, 15) === "b00000".U){
-      when(rs2 =/= 0.U){
+      when(operandB =/= 0.U){
         aluResult := 1.U
       }.otherwise{
         aluResult := 0.U
       }
     }.otherwise{
-      when(rs1 < rs2){
+      when(operandA < operandB){
         aluResult := 1.U
       }.otherwise{
         aluResult := 0.U
       }
     }
   }.elsewhen(isSLL){
-    aluResult := rs1 << (rs2(4, 0))
+    aluResult := operandA << (operandB(4, 0))
   }.elsewhen(isSRL){
-    aluResult := rs1 >> (rs2(4, 0))    
+    aluResult := operandA >> (operandB(4, 0))    
   }.elsewhen(isSRA){
-    aluResult := (rs1_Int >> (rs2(4, 0))).asUInt 
+    aluResult := (operandA_Int >> (operandB(4, 0))).asUInt 
   }.elsewhen(isAND){
-    aluResult := rs1 & rs2
+    aluResult := operandA & operandB
   }.elsewhen(isOR){
-    aluResult := rs1 | rs2
+    aluResult := operandA | operandB
   }.elsewhen(isXOR){
-    aluResult := rs1 ^ rs2
+    aluResult := operandA ^ operandB
   }.otherwise{
     aluResult := "hFFFFFFFF".U //default case
   }
@@ -200,7 +203,7 @@ class RV32Icore (BinaryFile: String) extends Module {
   /*
    * TODO: Store "writeBackData" in register "rd" in regFile
    */
-  rd := writeBackData
+  result := writeBackData
 
   // Check Result
   /*
