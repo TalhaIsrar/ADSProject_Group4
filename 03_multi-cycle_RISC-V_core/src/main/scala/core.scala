@@ -73,6 +73,8 @@ class MultiCycleRV32Icore (BinaryFile: String) extends Module {
   /*
    * TODO: Implement the memory as described above
    */
+  val IMem = Mem(4096, UInt(32.W))
+  loadMemoryFromFile(IMem, BinaryFile)
 
   // -----------------------------------------
   // CPU Registers
@@ -81,11 +83,13 @@ class MultiCycleRV32Icore (BinaryFile: String) extends Module {
   /*
    * TODO: Implement the program counter as a register, initialize with zero
    */
-
+  val PC = RegInit(0.U(16.W))
+  val regFile = Mem(32, UInt(32.W))
   /*
    * TODO: Implement the Register File as described above
    */
-
+  regFile(0.U) := 0.U
+  
   // -----------------------------------------
   // Microarchitectural Registers / Wires
   // -----------------------------------------
@@ -96,10 +100,47 @@ class MultiCycleRV32Icore (BinaryFile: String) extends Module {
   /*
    * TODO: Implement the registers and wires you need in the individual stages of the processor 
    */
+  val instruction = RegInit(0.U(32.W))
+
+  val opcode = Wire(UInt(7.W))
+  val funct3 = Wire(UInt(3.W))
+  val funct7 = Wire(UInt(7.W))
+  val rs2 = Wire(UInt(5.W))
+  val rs1 = Wire(UInt(5.W))
+  val extracted_imm = Wire(SInt(12.W))
+
+  opcode := 0.U
+  funct3 := 0.U
+  funct7 := 0.U
+  rs2 := 0.U
+  rs1 := 0.U
+  extracted_imm := 0.S
+
+  val rd = RegInit(0.U(5.W))
+
+  val isADDI = RegInit(false.B)
+  val isADD = RegInit(false.B)
+  val isSUB = RegInit(false.B)
+  val isSLT = RegInit(false.B)
+  val isSLTU = RegInit(false.B)
+  val isSLL = RegInit(false.B)
+  val isSRL = RegInit(false.B)
+  val isSRA = RegInit(false.B)
+  val isAND = RegInit(false.B)
+  val isOR = RegInit(false.B)
+  val isXOR = RegInit(false.B)
+
+  val operandA = RegInit(0.U(32.W))
+  val operandB = RegInit(0.U(32.W))
+  val immediate = RegInit(0.S(32.W))
+
+  val aluResult = RegInit(0.U(32.W))
+  val writeBackData = Wire(UInt(32.W)) 
+
+  writeBackData := 0.U
 
   // IOs need default case
   io.check_res := "h_0000_0000".U
-
 
   // -----------------------------------------
   // Processor Stages
@@ -107,56 +148,92 @@ class MultiCycleRV32Icore (BinaryFile: String) extends Module {
 
   when (stage === fetch)
   {
-
-  /*
-   * TODO: Implement fetch stage
-   */
-
+    instruction := IMem(PC>>2.U)
+    stage := decode
   } 
     .elsewhen (stage === decode)
   {
 
-  /*
-   * TODO: Implement decode stage
-   */
+    opcode := instruction(6, 0)
+    funct3 := instruction(14, 12)
+    funct7 := instruction(31, 25)
+    rs2 := instruction(24, 20)
+    rs1 := instruction(19,15)
+    rd := instruction(11, 7)
 
+    isADDI := (opcode === "b0010011".U && funct3 === "b000".U)
+    isADD  := (opcode === "b0110011".U && funct3 === "b000".U && funct7 === "b0000000".U)
+    isSUB  := (opcode === "b0110011".U && funct3 === "b000".U && funct7 === "b0100000".U)
+    isSLT  := (opcode === "b0110011".U && funct3 === "b010".U && funct7 === "b0000000".U)
+    isSLTU := (opcode === "b0110011".U && funct3 === "b011".U && funct7 === "b0000000".U)
+    isSLL  := (opcode === "b0110011".U && funct3 === "b001".U && funct7 === "b0000000".U)
+    isSRL  := (opcode === "b0110011".U && funct3 === "b101".U && funct7 === "b0000000".U)
+    isSRA  := (opcode === "b0110011".U && funct3 === "b101".U && funct7 === "b0100000".U)
+    isAND  := (opcode === "b0110011".U && funct3 === "b111".U && funct7 === "b0000000".U)
+    isOR   := (opcode === "b0110011".U && funct3 === "b110".U && funct7 === "b0000000".U)
+    isXOR  := (opcode === "b0110011".U && funct3 === "b100".U && funct7 === "b0000000".U)
+
+    operandA := regFile(rs1)
+    operandB := regFile(rs2)
+    
+    extracted_imm := instruction(31, 20).asSInt
+    immediate := extracted_imm.asSInt
+    stage := execute
   } 
     .elsewhen (stage === execute)
   {
-
-  /*
-   * TODO: Implement execute stage
-   */
-
+    when(isADDI){ 
+      aluResult := immediate.asUInt + operandA  
+    }.elsewhen(isADD){                            
+      aluResult := operandA + operandB  
+    }.elsewhen(isSUB){
+      aluResult := operandA - operandB
+    }.elsewhen(isSLT){
+      when(operandA.asSInt < operandB.asSInt){
+        aluResult := 1.U
+      }.otherwise{
+        aluResult := 0.U
+      }
+    }.elsewhen(isSLTU){
+        when(operandA < operandB){
+          aluResult := 1.U
+        }.otherwise{
+          aluResult := 0.U
+        }
+    }.elsewhen(isSLL){
+      aluResult := operandA << (operandB(4, 0))
+    }.elsewhen(isSRL){
+      aluResult := operandA >> (operandB(4, 0))    
+    }.elsewhen(isSRA){
+      aluResult := (operandA.asSInt >> (operandB(4, 0))).asUInt 
+    }.elsewhen(isAND){
+      aluResult := operandA & operandB
+    }.elsewhen(isOR){
+      aluResult := operandA | operandB
+    }.elsewhen(isXOR){
+      aluResult := operandA ^ operandB
+    }.otherwise{
+      aluResult := "hFFFFFFFF".U //default case
+    }
+    stage := memory
   }
     .elsewhen (stage === memory)
   {
-
     // No memory operations implemented in this basic CPU
-
-    // TODO: There might still something be missing here
-
+    stage := writeback
   } 
     .elsewhen (stage === writeback)
   {
-
-  /*
-   * TODO: Implement Writeback stag
-   */
-
-  /*
-   * TODO: Write result to output
-   */
-
+    writeBackData := aluResult
+    regFile(rd) := writeBackData
+    io.check_res := writeBackData
+    PC := PC + 4.U
+    stage := fetch
   }
     .otherwise 
   {
-
      // default case (needed for RTL-generation but should never be reached   
-
      assert(true.B, "Pipeline FSM must never be left")
-
   }
-
 }
 

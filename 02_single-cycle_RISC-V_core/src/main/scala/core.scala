@@ -113,8 +113,6 @@ class RV32Icore (BinaryFile: String) extends Module {
   val operandB = Wire(UInt(32.W))
   val result = Wire(UInt(32.W))
 
-  val operandA_Int = Wire(SInt(32.W))
-  val operandB_Int = Wire(SInt(32.W))
 
   // option 1 for extend the signed-12bit immediate
 //   val extendedImmUnsigned = Cat(Fill(20, instr(31)), instr(31, 20))
@@ -124,7 +122,6 @@ class RV32Icore (BinaryFile: String) extends Module {
   imm12 := instr(31, 20).asSInt
   val extendedImm = Wire(SInt(32.W))
   extendedImm := imm12.asSInt
-  val extendedImmUnsigned = extendedImm.asUInt
 
    /*
    * TODO: Add operand signals accoring to specification
@@ -133,47 +130,35 @@ class RV32Icore (BinaryFile: String) extends Module {
    operandB := regFile(rs2)
    regFile(rd) := result
 
-   // cast operand from UInt to Int
-   operandA_Int := operandA.asSInt
-   operandB_Int := operandB.asSInt
-
   // -----------------------------------------
   // Execute
   // -----------------------------------------
 
   val aluResult = Wire(UInt(32.W)) 
   when(isADDI){ 
-    aluResult := extendedImmUnsigned + operandA  
+    aluResult := extendedImm.asUInt + operandA  
   }.elsewhen(isADD){                            
     aluResult := operandA + operandB  
   }.elsewhen(isSUB){
     aluResult := operandA - operandB
   }.elsewhen(isSLT){
-    when(operandA_Int < operandB_Int){
+    when(operandA.asSInt < operandB.asSInt){
       aluResult := 1.U
     }.otherwise{
       aluResult := 0.U
     }
   }.elsewhen(isSLTU){
-    when(instr(19, 15) === "b00000".U){
-      when(operandB =/= 0.U){
-        aluResult := 1.U
-      }.otherwise{
-        aluResult := 0.U
-      }
-    }.otherwise{
       when(operandA < operandB){
         aluResult := 1.U
       }.otherwise{
         aluResult := 0.U
       }
-    }
   }.elsewhen(isSLL){
     aluResult := operandA << (operandB(4, 0))
   }.elsewhen(isSRL){
     aluResult := operandA >> (operandB(4, 0))    
   }.elsewhen(isSRA){
-    aluResult := (operandA_Int >> (operandB(4, 0))).asUInt 
+    aluResult := (operandA.asSInt >> (operandB(4, 0))).asUInt 
   }.elsewhen(isAND){
     aluResult := operandA & operandB
   }.elsewhen(isOR){
