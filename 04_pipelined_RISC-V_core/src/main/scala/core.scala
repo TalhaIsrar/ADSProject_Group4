@@ -140,18 +140,18 @@ class regFile extends Module {
 class IF (BinaryFile: String) extends Module {
   val io = IO(new Bundle {
     // What inputs and / or outputs does this pipeline stage need?
-    val pc_old = Input(UInt(16.W))
     val instruction = Output(UInt(32.W))
-    val pc = Output(UInt(16.W))
   })
+
+  val PC = RegInit(0.U(32.W))
 
   // Initialize IMEM  to handle instruction fetch
   val IMem = Mem(4096, UInt(32.W))
   loadMemoryFromFile(IMem, BinaryFile)
 
   // Connect outputs to IO interface
-  io.instruction := IMem(io.pc_old>>2.U)
-  io.pc := io.pc_old + 4.U
+  io.instruction := IMem(PC>>2.U)
+  PC := PC + 4.U
 }
 
 // -----------------------------------------
@@ -367,22 +367,17 @@ class WB extends Module {
 class IFBarrier extends Module {
   val io = IO(new Bundle {
     // What inputs and / or outputs does this barrier need?
-    val pc_in = Input(UInt(32.W))            // PC input from the IF stage
     val instruction_in = Input(UInt(32.W))   // Instruction input from the IF stage
-    val pc_out = Output(UInt(32.W))           // PC output to the ID stage
     val instruction_out = Output(UInt(32.W)) // Instruction output to the ID stage
   })
 
-  // Registers to store PC value and instruction
-  val pc_reg = RegInit(0.U(32.W))
+  // Registers to store instruction
   val instruction_reg = RegInit(0.U(32.W))
 
   // Store inputs into registers (acting as barrier)
-  pc_reg := io.pc_in
   instruction_reg := io.instruction_in
 
   // Outputs to next stage (ID)
-  io.pc_out := pc_reg
   io.instruction_out := instruction_reg
 }
 
@@ -542,22 +537,16 @@ class PipelinedRV32Icore (BinaryFile: String) extends Module {
   io.check_res := "h_0000_0000".U
 
   // Connections between stages, barriers and register file
-  if_stage.io.pc_old := if_barrier.io.pc_out
 
    // Connect IF -> IF Barrier
-  if_barrier.io.pc_in := if_stage.io.pc
   if_barrier.io.instruction_in := if_stage.io.instruction
 
   // Connect IF Barrier -> ID
   id_stage.io.instruction := if_barrier.io.instruction_out
 
+  // Connect ID -> RegFile
   regFile.io.req.addr1 := id_stage.io.rs1  // Address for reading rs1
   regFile.io.req.addr2 := id_stage.io.rs2  // Address for reading rs2
-
-  // Connect ID -> RegFile
-  regFile.io.writeReq.addr := 0.U  // Default write address
-  regFile.io.writeReq.data := 0.U  // Default write data
-  regFile.io.writeReq.writeEn := false.B  // Disable writing by default
 
   // Connect ID & RegFile -> ID Barrier
   id_barrier.io.operandA_in := regFile.io.resp.data1
