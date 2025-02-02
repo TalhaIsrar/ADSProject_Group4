@@ -86,38 +86,34 @@ class regFile extends Module {
   val regFile = Mem(32, UInt(32.W))
   regFile(0) := 0.U                           // hard-wired zero for x0
 
-  io.resp_1.data := Mux(io.req_1.addr === 0.U, 0.U, regFile(io.req_1.addr))
-  io.resp_2.data := Mux(io.req_2.addr === 0.U, 0.U, regFile(io.req_2.addr))
-
   when(io.req_3.wr_en){
     when(io.req_3.addr =/= 0.U){
       regFile(io.req_3.addr) := io.req_3.data
     }
+  }
+  when(io.req_3.wr_en & (io.req_3.addr =/= 0.U) & (io.req_1.addr === io.req_3.addr)){
+    io.resp_1.data := io.req_3.data
+  }.otherwise{
+    io.resp_1.data := Mux(io.req_1.addr === 0.U, 0.U, regFile(io.req_1.addr))
+  }
 
-    when (io.req_3.addr === io.req_1.addr)
-    {
-      io.resp_1.data := Mux(io.req_1.addr === 0.U, 0.U, io.req_3.data)
-    }
-
-    when (io.req_3.addr === io.req_2.addr)
-    {
-      io.resp_2.data := Mux(io.req_2.addr === 0.U, 0.U, io.req_3.data)
-    }
+  when(io.req_3.wr_en & (io.req_3.addr =/= 0.U) & (io.req_2.addr === io.req_3.addr)){
+    io.resp_2.data := io.req_3.data
+  }.otherwise{
+    io.resp_2.data := Mux(io.req_2.addr === 0.U, 0.U, regFile(io.req_2.addr))
   }
 }
 
 class ForwardingUnit extends Module {
   val io = IO(new Bundle {
     // What inputs and / or outputs does the forwarding unit need?
-    val exMemRegWrite = Input(Bool())      // RegWrite signal from EX/MEM stage
-    val exMemRd = Input(UInt(5.W))         // Destination register from EX/MEM stage
-    val memWbRegWrite = Input(Bool())      // RegWrite signal from MEM/WB stage
-    val memWbRd = Input(UInt(5.W))         // Destination register from MEM/WB stage
-    val idExRs1 = Input(UInt(5.W))         // Source register 1 from ID/EX stage
-    val idExRs2 = Input(UInt(5.W))         // Source register 2 from ID/EX stage
-    
-    val forwardA = Output(UInt(2.W))       // Forwarding select for operand A
-    val forwardB = Output(UInt(2.W))       // Forwarding select for operand B
+    val rs1_ID            = Input(UInt(5.W))
+    val rs2_ID            = Input(UInt(5.W))
+    val rd_EX             = Input(UInt(5.W))
+    val rd_MEM            = Input(UInt(5.W))
+    val uop               = Input(uopc())
+    val ctrl_operandA     = Output(UInt(2.W))
+    val ctrl_operandB     = Output(UInt(2.W))
   })
 
 
@@ -129,24 +125,25 @@ class ForwardingUnit extends Module {
   /* TODO:
      Forwarding Selection:
      Select the appropriate value to forward from one stage to another based on the hazard checks.
-  */
+  */  
 
-    when(io.exMemRegWrite && (io.exMemRd =/= 0.U) && (io.exMemRd === io.idExRs1)) {
-      io.forwardA := 1.U  // Forward from EX/MEM stage
-      } .elsewhen(io.memWbRegWrite && (io.memWbRd =/= 0.U) && (io.memWbRd === io.idExRs1)) {
-        io.forwardA := 2.U  // Forward from MEM/WB stage
-      } .otherwise {
-        io.forwardA := 0.U // No forwarding
-      }
-
-      // Forwarding logic for operand B
-      when(io.exMemRegWrite && (io.exMemRd =/= 0.U) && (io.exMemRd === io.idExRs2)) {
-        io.forwardB := 1.U  // Forward from EX/MEM stage
-      } .elsewhen(io.memWbRegWrite && (io.memWbRd =/= 0.U) && (io.memWbRd === io.idExRs2)) {
-        io.forwardB := 2.U  // Forward from MEM/WB stage
-      } .otherwise {
-        io.forwardB := 0.U // No forwarding
+    when((io.rs1_ID === io.rd_MEM) & (io.rd_MEM =/= 0.U)){
+      io.ctrl_operandA := 1.U
+    }.elsewhen((io.rs1_ID === io.rd_EX) & (io.rd_MEM =/= 0.U)){
+      io.ctrl_operandA := 2.U
+    }.otherwise{
+      io.ctrl_operandA := 0.U
     }
+
+
+    when((io.rs2_ID === io.rd_MEM) & (io.uop =/= isADDI) & (io.rd_MEM =/= 0.U)){
+      io.ctrl_operandB := 2.U
+    }.elsewhen((io.rs2_ID === io.rd_EX) & (io.uop =/= isADDI) & (io.rd_MEM =/= 0.U)){
+      io.ctrl_operandB := 1.U
+    }.otherwise{
+      io.ctrl_operandB := 0.U
+    }
+
 }
 
 
@@ -371,7 +368,6 @@ class IFBarrier extends Module {
   })
 
   val instrReg = RegInit(0.U(32.W))
-
   io.outInstr := instrReg
   instrReg    := io.inInstr
 
@@ -434,7 +430,7 @@ class EXBarrier extends Module {
   })
 
   val aluResult = RegInit(0.U(32.W))
-  val rd       = RegInit(0.U(5.W))
+  val rd       = RegInit(31.U(5.W))
 
   io.outAluResult := aluResult
   aluResult       := io.inAluResult
@@ -458,7 +454,7 @@ class MEMBarrier extends Module {
   })
 
   val aluResult = RegInit(0.U(32.W))
-  val rd        = RegInit(0.U(5.W))
+  val rd        = RegInit(31.U(5.W))
 
   io.outAluResult := aluResult
   aluResult       := io.inAluResult
@@ -513,7 +509,8 @@ class HazardDetectionRV32Icore (BinaryFile: String) extends Module {
   /* 
     TODO: Instantiate the forwarding unit.
   */
-  val forwardingUnit = Module(new ForwardingUnit)
+  val FORWARD= Module(new ForwardingUnit)
+
 
   //Register File
   val regFile = Module(new regFile)
@@ -537,36 +534,33 @@ class HazardDetectionRV32Icore (BinaryFile: String) extends Module {
   /* 
     TODO: Connect the I/Os of the forwarding unit 
   */
-
-  forwardingUnit.io.exMemRegWrite := EXBarrier.io.outRD =/= 0.U
-  forwardingUnit.io.exMemRd       := EXBarrier.io.outRD
-  forwardingUnit.io.memWbRegWrite := MEMBarrier.io.outRD =/= 0.U  
-  forwardingUnit.io.memWbRd       := MEMBarrier.io.outRD
-  forwardingUnit.io.idExRs1       := IDBarrier.io.outRS1
-  forwardingUnit.io.idExRs2       := IDBarrier.io.outRS2
+  FORWARD.io.rs1_ID   := IDBarrier.io.outRS1
+  FORWARD.io.rs2_ID   := IDBarrier.io.outRS2
+  FORWARD.io.rd_EX    := EXBarrier.io.outRD
+  FORWARD.io.rd_MEM   := MEMBarrier.io.outRD
+  FORWARD.io.uop      := IDBarrier.io.outUOP
 
   /* 
     TODO: Implement MUXes to select which values are sent to the EX stage as operands
   */
 
-  EX.io.operandA := MuxCase(IDBarrier.io.outOperandA, Seq(
-    (forwardingUnit.io.forwardA === 0.U) -> IDBarrier.io.outOperandA,
-    (forwardingUnit.io.forwardA === 1.U) -> EXBarrier.io.outAluResult,
-    (forwardingUnit.io.forwardA === 2.U) -> MEMBarrier.io.outAluResult
-  ))
-  EX.io.operandB := MuxCase(IDBarrier.io.outOperandB, Seq(
-    (forwardingUnit.io.forwardB === 0.U) -> IDBarrier.io.outOperandB,
-    (forwardingUnit.io.forwardB === 1.U) -> EXBarrier.io.outAluResult,
-    (forwardingUnit.io.forwardB === 2.U) -> MEMBarrier.io.outAluResult
-  ))
-
   EX.io.uop := IDBarrier.io.outUOP
 
   /* 
     TODO: Connect operand inputs in EX stage to forwarding logic
-      EX.io.operandA := 0.U // just there to make empty project buildable
-      EX.io.operandB := 0.U // just there to make empty project buildable
   */
+
+  EX.io.operandA := MuxCase(IDBarrier.io.outOperandA, Array(
+    (FORWARD.io.ctrl_operandA === 0.U) -> IDBarrier.io.outOperandA,
+    (FORWARD.io.ctrl_operandA === 1.U) -> MEMBarrier.io.outAluResult,
+    (FORWARD.io.ctrl_operandA === 2.U) -> EXBarrier.io.outAluResult
+  ))
+
+  EX.io.operandB := MuxCase(IDBarrier.io.outOperandB, Array(
+    (FORWARD.io.ctrl_operandB === 0.U) -> IDBarrier.io.outOperandB,
+    (FORWARD.io.ctrl_operandB === 2.U) -> MEMBarrier.io.outAluResult,
+    (FORWARD.io.ctrl_operandB === 1.U) -> EXBarrier.io.outAluResult
+  ))
 
   EXBarrier.io.inRD         := IDBarrier.io.outRD
   EXBarrier.io.inAluResult  := EX.io.aluResult
