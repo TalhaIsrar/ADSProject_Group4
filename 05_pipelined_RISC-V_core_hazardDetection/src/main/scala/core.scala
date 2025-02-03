@@ -129,7 +129,7 @@ class ForwardingUnit extends Module {
 
     when((io.rs1_ID === io.rd_MEM) & (io.rd_MEM =/= 0.U)){
       io.ctrl_operandA := 1.U
-    }.elsewhen((io.rs1_ID === io.rd_EX) & (io.rd_MEM =/= 0.U)){
+    }.elsewhen((io.rs1_ID === io.rd_EX) & (io.rd_EX =/= 0.U)){
       io.ctrl_operandA := 2.U
     }.otherwise{
       io.ctrl_operandA := 0.U
@@ -138,7 +138,7 @@ class ForwardingUnit extends Module {
 
     when((io.rs2_ID === io.rd_MEM) & (io.uop =/= isADDI) & (io.rd_MEM =/= 0.U)){
       io.ctrl_operandB := 2.U
-    }.elsewhen((io.rs2_ID === io.rd_EX) & (io.uop =/= isADDI) & (io.rd_MEM =/= 0.U)){
+    }.elsewhen((io.rs2_ID === io.rd_EX) & (io.uop =/= isADDI) & (io.rd_EX =/= 0.U)){
       io.ctrl_operandB := 1.U
     }.otherwise{
       io.ctrl_operandB := 0.U
