@@ -128,9 +128,9 @@ class ForwardingUnit extends Module {
   */  
 
     when((io.rs1_ID === io.rd_MEM) & (io.rd_MEM =/= 0.U)){
-      io.ctrl_operandA := 1.U
-    }.elsewhen((io.rs1_ID === io.rd_EX) & (io.rd_EX =/= 0.U)){
       io.ctrl_operandA := 2.U
+    }.elsewhen((io.rs1_ID === io.rd_EX) & (io.rd_EX =/= 0.U)){
+      io.ctrl_operandA := 1.U
     }.otherwise{
       io.ctrl_operandA := 0.U
     }
@@ -552,8 +552,8 @@ class HazardDetectionRV32Icore (BinaryFile: String) extends Module {
 
   EX.io.operandA := MuxCase(IDBarrier.io.outOperandA, Array(
     (FORWARD.io.ctrl_operandA === 0.U) -> IDBarrier.io.outOperandA,
-    (FORWARD.io.ctrl_operandA === 1.U) -> MEMBarrier.io.outAluResult,
-    (FORWARD.io.ctrl_operandA === 2.U) -> EXBarrier.io.outAluResult
+    (FORWARD.io.ctrl_operandA === 2.U) -> MEMBarrier.io.outAluResult,
+    (FORWARD.io.ctrl_operandA === 1.U) -> EXBarrier.io.outAluResult
   ))
 
   EX.io.operandB := MuxCase(IDBarrier.io.outOperandB, Array(
