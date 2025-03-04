@@ -39,15 +39,15 @@ class btbFile extends Module {
   val btbFile = RegInit(VecInit(Seq.fill(8)(0.U(128.W))))
 
   // Read requests
-/*  when((io.writeReq.update).asBool && (io.readReq.index === io.writeReq.index))
+  // Forwarding if we have read and write to same PC address
+  when((io.writeReq.update).asBool && (io.readReq.index === io.writeReq.index))
   { 
     io.readResp.set := io.writeReq.set
   }.otherwise
   {
     io.readResp.set := btbFile(io.readReq.index)
   }
-*/
-  io.readResp.set := btbFile(io.readReq.index)
+
   io.updateResp.set := btbFile(io.updateReq.index)
 
   // Write request
@@ -92,8 +92,7 @@ class btb extends Module{
     val predictedTaken = Output(UInt(1.W))  // 1 bit to show branch taken or not       - IF stage
     })
 
-  // Initialize FSM for read and write modules
-  val fsm_forwarding = Module(new FSM())
+  // Initialize FSM for write modules
   val fsm_branch1 = Module(new FSM())
   val fsm_branch2 = Module(new FSM())
 
@@ -166,36 +165,21 @@ class btb extends Module{
   check_branch1 := valid1.asBool && (tag === tag1)
   check_branch2 := valid2.asBool && (tag === tag2)
 
-  // Mux to calculate valid signal
-  // If Target PC in IF stage = Update PC from EX stage are same then forward values and valid = 1 
-  // Else check if any way in set has match
-  //io.valid := Mux((io.PC === io.updatePC) && io.update.asBool, 1.U,(check_branch1 || check_branch2).asUInt)
-  
-  // Check if forwarding is needed otherwise check if value is in branch
-  //io.target := Mux((io.PC === io.updatePC) && io.update.asBool, io.updateTarget, 
-  //                                                  Mux(check_branch1, target1, target2))
-  
+  // Valid signals checks if any branch has tag
   io.valid := (check_branch1 || check_branch2).asUInt
+
+  // Target signals extracts value from correct branch
   io.target := Mux(check_branch1, target1, target2)
 
-  // For forwarding if tag already exists then get dynamic prediction and use fsm to get new prediction 
-  // Pass the prediction directly to IF stage 
-  val current_fsm_forwarding = Wire(UInt(2.W))
-  val next_fsm_forwarding = Wire(UInt(2.W))
+  val current_fsm = Wire(UInt(2.W))
 
   // Extract prediction using btb
-  current_fsm_forwarding := Mux(check_branch1, fsm1, Mux(check_branch2, fsm2, 0.U))
+  current_fsm := Mux(check_branch1, fsm1, Mux(check_branch2, fsm2, 0.U))
   
-  fsm_forwarding.io.currentState := current_fsm_forwarding
-  fsm_forwarding.io.input        := (io.mispredicted).asBool
-  next_fsm_forwarding := fsm_forwarding.io.nextState
-
   // predictedTaken is 0 for strongNotTaken(00) && weakNotTaken(01)
   // predictedTaken is 1 for strongTaken(10) && weakTaken(11)
   // This is same as MSB of state
-  //io.predictedTaken := Mux((io.PC === io.updatePC) && io.update.asBool, 
-  //                                      next_fsm_forwarding(1), current_fsm_forwarding(1))
-  io.predictedTaken := current_fsm_forwarding(1)
+  io.predictedTaken := current_fsm(1)
 
   // read the LRU value for the current set
   val lru_read = Wire(UInt(1.W))
