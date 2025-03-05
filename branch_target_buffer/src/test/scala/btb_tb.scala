@@ -8,265 +8,158 @@ class btbTester extends AnyFlatSpec with ChiselScalatestTester {
   "btb" should "work" in {
     test(new btb).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
 
-        val PC_set0_0  = "h000A0000".U 
-        val Tar_Add0_0 = "h000B0000".U 
-        val PC_set1_0  = "h000A0004".U 
-        val Tar_Add1_0 = "h000B0004".U 
-        val PC_set2_0  = "h000A0008".U 
-        val Tar_Add2_0 = "h000B0008".U 
-        val PC_set3_0  = "h000A000C".U 
-        val Tar_Add3_0 = "h000B000C".U 
-        val PC_set4_0  = "h000A0010".U 
-        val Tar_Add4_0 = "h000B0010".U 
-        val PC_set5_0  = "h000A0014".U 
-        val Tar_Add5_0 = "h000B0014".U 
-        val PC_set6_0  = "h000A0018".U 
-        val Tar_Add6_0 = "h000B0018".U 
-        val PC_set7_0  = "h000A001C".U 
-        val Tar_Add7_0 = "h000B001C".U 
+      val list_PCs_TarAddrs = List("h000A0000".U, "h000B0000".U, "h000A0020".U, "h000B0020".U, "h000A0040".U, "h000B0040".U,  //3 entries for set 0
+                                    "h000A0004".U, "h000B0004".U, "h000A0024".U, "h000B0024".U, "h000A0044".U, "h000B0044".U, //3 entries for set 1
+                                    "h000A0008".U, "h000B0008".U, "h000A0028".U, "h000B0028".U, "h000A0048".U, "h000B0048".U, //3 entries for set 2
+                                    "h000A000C".U, "h000B000C".U, "h000A002C".U, "h000B002C".U, "h000A004C".U, "h000B004C".U, //3 entries for set 3
+                                    "h000A0010".U, "h000B0010".U, "h000A0030".U, "h000B0030".U, "h000A0050".U, "h000B0050".U, //3 entries for set 4
+                                    "h000A0014".U, "h000B0014".U, "h000A0034".U, "h000B0034".U, "h000A0054".U, "h000B0054".U, //3 entries for set 5
+                                    "h000A0018".U, "h000B0018".U, "h000A0038".U, "h000B0038".U, "h000A0058".U, "h000B0058".U, //3 entries for set 6
+                                    "h000A001C".U, "h000B001C".U, "h000A003C".U, "h000B003C".U, "h000A005C".U, "h000B005C".U) //3 entries for set 7
+      // 8 loops for 8 sets
+      // PC_i, Tar_Add_i are the PC and corresponding target address (there are 3 entries for testing each set)
+      for(element <- list_PCs_TarAddrs.grouped(6))
+      {
+        val PC_0      = element(0)
+        val Tar_Add_0 = element(1)
+        val PC_1      = element(2)
+        val Tar_Add_1 = element(3)
+        val PC_2      = element(4)
+        val Tar_Add_2 = element(5)
+        // Test case 0: No entry is written when update is false
+        // write first instruction to btb with update = false
+        dut.io.update.poke(0.U)               // set updating btb
+        dut.io.updatePC.poke(PC_0)            // PC should be in the set 
+        dut.io.updateTarget.poke(Tar_Add_0)   // Target address of ins
+        dut.io.mispredicted.poke(0.U)         // suppose no mispredict
 
-        val PC_set0_1  = "h000A0020".U 
-        val Tar_Add0_1 = "h000B0020".U 
-        val PC_set1_1  = "h000A0024".U 
-        val Tar_Add1_1 = "h000B0024".U 
-        val PC_set2_1  = "h000A0028".U 
-        val Tar_Add2_1 = "h000B0028".U 
-        val PC_set3_1  = "h000A002C".U 
-        val Tar_Add3_1 = "h000B002C".U 
-        val PC_set4_1  = "h000A0030".U 
-        val Tar_Add4_1 = "h000B0030".U 
-        val PC_set5_1  = "h000A0034".U 
-        val Tar_Add5_1 = "h000B0034".U 
-        val PC_set6_1  = "h000A0038".U 
-        val Tar_Add6_1 = "h000B0038".U 
-        val PC_set7_1  = "h000A003C".U 
-        val Tar_Add7_1 = "h000B003C".U 
+        dut.clock.step(1)                     
 
-        val PC_set0_2  = "h000A0040".U 
-        val Tar_Add0_2 = "h000B0040".U 
-        val PC_set1_2  = "h000A0044".U 
-        val Tar_Add1_2 = "h000B0044".U 
-        val PC_set2_2  = "h000A0048".U 
-        val Tar_Add2_2 = "h000B0048".U 
-        val PC_set3_2  = "h000A004C".U 
-        val Tar_Add3_2 = "h000B004C".U 
-        val PC_set4_2  = "h000A0050".U 
-        val Tar_Add4_2 = "h000B0050".U 
-        val PC_set5_2  = "h000A0054".U 
-        val Tar_Add5_2 = "h000B0054".U 
-        val PC_set6_2  = "h000A0058".U 
-        val Tar_Add6_2 = "h000B0058".U 
-        val PC_set7_2  = "h000A005C".U 
-        val Tar_Add7_2 = "h000B005C".U 
+        // check if first instruction is available
+        dut.io.PC.poke(PC_0)                  // set PC with written entry before
+        dut.clock.step(1)                     // wait 1 cycle to get outputs of btb
+        dut.io.valid.expect(0.U)              // check valid
 
+        // Test case 1: Test outputs: valid, target correctly after entry is written
+        // write first instruction to btb
+        dut.io.update.poke(1.U)               // set updating btb
+        dut.io.updatePC.poke(PC_0)            // PC should be in the set 
+        dut.io.updateTarget.poke(Tar_Add_0)   // Target address of ins
+        dut.io.mispredicted.poke(0.U)         // suppose no mispredict
 
-      // Test Case 1: Applying initial values and checking the outputs
-      dut.io.PC.poke(0x0000B000.U)           // Set PC to some initial value
-      dut.io.update.poke(0.U)                // Set update signal to 1 (indicating update)
+        dut.clock.step(1)                     // wait 1 cycle for updating btb
+        dut.io.update.poke(0.U)               // not allow update
 
-      // Apply a clock cycle
-      dut.clock.step(1)
-      dut.io.valid.expect(0.U)              // Expect valid to be 0
+        // check if first instruction is available
+        dut.io.PC.poke(PC_0)                  // set PC with written entry before
+        dut.clock.step(1)                     // wait 1 cycle to get outputs of btb
+        dut.io.valid.expect(1.U)              // check valid
+        dut.io.target.expect(Tar_Add_0)       // check Target address
 
-      dut.io.update.poke(1.U)                // Set update signal to 1 (indicating update)
-      dut.io.updatePC.poke(0x0000B000.U)     // Set updatePC
-      dut.io.updateTarget.poke(0x1000C000.U) // Set update target address
-      dut.io.mispredicted.poke(1.U)          // Indicate that the branch was mispredicted (taken)
-            
-      // Apply a clock cycle
-      dut.clock.step(1)
-
-      // Check expected results
-      dut.io.valid.expect(1.U)              // Expect valid to be 1 (updated)
-      dut.io.target.expect(0x1000C000.U)    // Expect the target to be 0x1000C000
-      dut.io.predictedTaken.expect(1.U)     // Expect predictedTaken to be 1 (branch taken)
-
-      // Test Case 2: Changing inputs and checking updated results
-      dut.io.update.poke(1.U)               // Set update signal to 0 (no update)
-      dut.io.updatePC.poke(0x0000D000.U)    // Set a new updatePC
-      dut.io.updateTarget.poke(0x2000D000.U) // Set a new target address
-      dut.io.mispredicted.poke(0.U)         // Indicate that the branch was not mispredicted (not taken)
-      dut.io.PC.poke(0x0000D000.U)          
-
-      // Apply another clock cycle
-      dut.clock.step(1)
-
-      // Check expected results after the change
-      dut.io.valid.expect(1.U)              // Expect valid to be 0 (no update)
-      dut.io.target.expect(0x2000D000.U)    // Expect target to be 0x2000D000
-      dut.io.predictedTaken.expect(0.U)     // Expect predictedTaken to be 0 (branch not taken)
-      
-      // Test Case 3: Apply different values for valid and mispredicted signals
-      dut.io.update.poke(1.U)               // Set update signal to 1
-      dut.io.updatePC.poke(0x0000E000.U)    // Set another updatePC
-      dut.io.updateTarget.poke(0x3000E000.U) // Set another target address
-      dut.io.mispredicted.poke(1.U)         // Indicate that the branch was mispredicted (taken)
-      dut.io.PC.poke(0x0000E000.U)           // Set PC to some initial value
-
-      // Apply another clock cycle
-      dut.clock.step(1)
-
-      // Test Case 3: Apply different values for valid and mispredicted signals
-      dut.io.update.poke(1.U)               // Set update signal to 1
-      dut.io.updatePC.poke(0x0000E000.U)    // Set another updatePC
-      dut.io.updateTarget.poke(0x3000E000.U) // Set another target address
-      dut.io.mispredicted.poke(1.U)         // Indicate that the branch was mispredicted (taken)
-      dut.io.PC.poke(0x0000E000.U)           // Set PC to some initial value
-      dut.io.predictedTaken.expect(1.U)     // Expect predictedTaken to be 1 (branch taken) Update in same clk cycle
-
-      // Apply another clock cycle
-      dut.clock.step(1)
-      dut.io.update.poke(0.U)               // Set update signal to 0
-
-      // Apply another clock cycle
-      dut.clock.step(1)
-
-      // Check expected results after this change
-      dut.io.valid.expect(1.U)              // Expect valid to be 1 (updated)
-      dut.io.target.expect(0x3000E000.U)    // Expect target to be 0x3000E000
-      dut.io.predictedTaken.expect(1.U)     // Expect predictedTaken to be 1 (branch taken)
-    
-
-        /**** Test set 0 ****/
-
-        // 2 cycles at the beginning
-        dut.io.PC.poke(PC_set0_0)
-        dut.io.update.poke(0.U)
-        dut.io.updatePC.poke(0.U)
-        dut.io.updateTarget.poke(0.U)
-        dut.io.mispredicted.poke(0.U)
-        dut.io.valid.expect(0.U)
+        // Test case 2: check the proper transition of FSM
+        // run instruction at second time with no mispredict to ensure btb is in strong state
+        dut.io.update.poke(1.U)               // set updating btb
+        dut.io.updatePC.poke(PC_0)            // PC should be in set 0 
+        dut.io.updateTarget.poke(Tar_Add_0)   // Target address of ins
+        dut.io.mispredicted.poke(0.U)         // suppose no mispredict
+        dut.io.PC.poke(PC_0)                  // set PC with PC_0
         dut.clock.step(1)
+        dut.io.update.poke(0.U)               // not allow update                
+                                              
+        if(dut.io.predictedTaken.peek.litValue == 0) { 
+        // btb is in strongNotTaken, run instruction for 2 times with mispredict, then btb should be in strongTaken
+          dut.clock.step(1)
+          dut.io.mispredicted.poke(1.U)         // mispredict
+          dut.io.update.poke(1.U)               // set updating btb
+          dut.clock.step(1)       
+          dut.io.update.poke(0.U)               // not allow update
+          dut.io.predictedTaken.expect(0.U)     // btb is in weakNotTaken
 
-        dut.io.PC.poke(PC_set1_0)
-        dut.io.valid.expect(0.U)
-        dut.clock.step(1)
+          dut.clock.step(1)
+          dut.io.update.poke(1.U)               // set updating btb
+          dut.clock.step(1)
+          dut.io.update.poke(0.U)               // not allow update
+          dut.io.predictedTaken.expect(1.U)     // btb is in strongTaken
 
-        // write set0_0 and not branch
-        dut.io.update.poke(1.U)
-        dut.io.updatePC.poke(PC_set0_0)
-        dut.io.updateTarget.poke(Tar_Add0_0)
-        dut.io.mispredicted.poke(0.U)
-        dut.clock.step(1)
-        dut.io.update.poke(0.U)
+          // run instruction for 2 times more with mispredict, then btb should be in strongTaken
+          dut.clock.step(1)
+          dut.io.update.poke(1.U)               // set updating btb
+          dut.clock.step(1)
+          dut.io.update.poke(0.U)               // not allow update
+          dut.io.predictedTaken.expect(1.U)     // btb is in weakTaken
 
-        // check if set0_0 is available
-        dut.io.PC.poke(PC_set0_0)
-        dut.clock.step(1)
-        dut.io.valid.expect(1.U)
-        dut.io.target.expect(Tar_Add0_0)
-        dut.io.predictedTaken.expect(0.U)
-        dut.clock.step(1)
+          dut.clock.step(1)
+          dut.io.update.poke(1.U)               // set updating btb
+          dut.clock.step(1)
+          dut.io.update.poke(0.U)               // not allow update
+          dut.io.predictedTaken.expect(0.U)     // btb is in strongNotTaken    
+        } else{
+          // btb is in strongTaken, run instruction for 2 times with mispredict, then btb should be in strongNotTaken
+          dut.clock.step(1)
+          dut.io.mispredicted.poke(1.U)         // mispredict
+          dut.io.update.poke(1.U)               // set updating btb
+          dut.clock.step(1)       
+          dut.io.update.poke(0.U)               // not allow update
+          dut.io.predictedTaken.expect(1.U)     // btb is in weakTaken
 
-        // write set0_1 but update is false
-        dut.io.update.poke(0.U)
-        dut.io.updatePC.poke(PC_set0_1)
-        dut.io.updateTarget.poke(Tar_Add0_1)
-        dut.io.mispredicted.poke(0.U)
-        dut.clock.step(1)
+          dut.clock.step(1)
+          dut.io.update.poke(1.U)               // set updating btb
+          dut.clock.step(1)
+          dut.io.update.poke(0.U)               // not allow update
+          dut.io.predictedTaken.expect(0.U)     // btb is in strongNotTaken
 
-        // check if update is false, no entry is written
-        dut.io.PC.poke(PC_set0_1)
-        dut.clock.step(1)
-        dut.io.valid.expect(0.U)
-        dut.clock.step(1)
+          // run instruction for 2 times more with mispredict, then btb should be in strongTaken
+          dut.clock.step(1)
+          dut.io.update.poke(1.U)               // set updating btb
+          dut.clock.step(1)
+          dut.io.update.poke(0.U)               // not allow update
+          dut.io.predictedTaken.expect(0.U)     // btb is in weakNotTaken
 
-        // branch at set0_0 for 2 times, then BTB is in strongTaken
-        dut.io.update.poke(1.U)
-        dut.io.updatePC.poke(PC_set0_0)
-        dut.io.updateTarget.poke(Tar_Add0_0)
-        dut.io.mispredicted.poke(1.U)
-        dut.clock.step(2)
-        dut.io.PC.poke(PC_set0_0)
-        dut.io.update.poke(0.U)
-        dut.clock.step(1)
+          dut.clock.step(1)
+          dut.io.update.poke(1.U)               // set updating btb
+          dut.clock.step(1)
+          dut.io.update.poke(0.U)               // not allow update
+          dut.io.predictedTaken.expect(1.U)     // btb is in strongTaken   
+        }
 
-        dut.io.valid.expect(1.U)
-        dut.io.target.expect(Tar_Add0_0)
-        dut.io.predictedTaken.expect(1.U) 
+        // Test case 3: correct eviction behavior
+        // write the second entry to the set
+        // and check if btb can write and read at the same time at the same site
         dut.clock.step(1)
+        dut.io.PC.poke(PC_1)                    // set PC with PC_1
+        dut.clock.step(1)
+        dut.io.update.poke(1.U)                 // set updating btb
+        dut.io.updatePC.poke(PC_1)              // PC should be in the set
+        dut.io.updateTarget.poke(Tar_Add_1)     // Target address of ins
+        dut.io.mispredicted.poke(0.U)           // suppose no mispredict
+        dut.io.valid.expect(1.U)                // valid should be true at the same clock when entry is written
+        dut.io.target.expect(Tar_Add_1)         // target should be outputed at the same clock when entry is written
+        dut.clock.step(1)
+        dut.io.update.poke(0.U)                 // not allow update
+        dut.io.valid.expect(1.U)                // valid is checked again
+        dut.io.target.expect(Tar_Add_1)         // target is checked again
 
-        // not branch at set0_0, then BTB is in weakTaken
-        dut.io.update.poke(1.U)
-        dut.io.updatePC.poke(PC_set0_0)
-        dut.io.updateTarget.poke(Tar_Add0_0)
-        dut.io.mispredicted.poke(1.U)
-        dut.io.predictedTaken.expect(1.U) 
-        dut.io.PC.poke(PC_set0_0)
+        // write the third entry to the set
         dut.clock.step(1)
+        dut.io.update.poke(1.U)               // set updating btb
+        dut.io.updatePC.poke(PC_2)            // PC should be in the set
+        dut.io.updateTarget.poke(Tar_Add_2)   // Target address of ins
+        dut.io.mispredicted.poke(0.U)         // suppose no mispredict
 
-        dut.io.update.poke(0.U)
-        dut.io.valid.expect(1.U)
-        dut.io.target.expect(Tar_Add0_0)
-        dut.io.predictedTaken.expect(1.U)
-        dut.clock.step(1)
-
-        // not branch at set0_0, then BTB is in strongNotTaken
-        dut.io.update.poke(1.U)
-        dut.io.mispredicted.poke(1.U)
-        dut.io.valid.expect(1.U)
-        dut.io.target.expect(Tar_Add0_0)
-        dut.io.predictedTaken.expect(0.U)
-        dut.clock.step(1)
-        dut.io.predictedTaken.expect(0.U)
-
-        // branch at set0_0, then BTB is in weakNotTaken
-        dut.io.update.poke(1.U)
-        dut.io.updatePC.poke(PC_set0_0)
-        dut.io.updateTarget.poke(Tar_Add0_0)
-        dut.io.mispredicted.poke(1.U)
-        dut.clock.step(1)
-
-        // branch at set0_0, then BTB is in StrongTaken
-        dut.io.valid.expect(1.U)
-        dut.io.target.expect(Tar_Add0_0)
-        dut.io.predictedTaken.expect(1.U)
-        dut.io.PC.poke(PC_set0_0)
-        dut.clock.step(1)
-
-        // branch at set0_0, then BTB is in WeakTaken
-        dut.io.valid.expect(1.U)
-        dut.io.target.expect(Tar_Add0_0)
-        dut.io.predictedTaken.expect(1.U)
-        dut.clock.step(1)
-
-        // write set0_1 and not branch
-        dut.io.update.poke(1.U)
-        dut.io.updatePC.poke(PC_set0_1)
-        dut.io.updateTarget.poke(Tar_Add0_1)
-        dut.io.mispredicted.poke(0.U)
-        dut.clock.step(1)
-        dut.io.update.poke(0.U)
-
-        // check if set0_1 is available
-        dut.io.PC.poke(PC_set0_1)
-        dut.clock.step(1)
-        dut.io.valid.expect(1.U)
-        dut.io.target.expect(Tar_Add0_1)
-        dut.clock.step(1)
-
-        // write set0_2 and not branch
-        dut.io.update.poke(1.U)
-        dut.io.updatePC.poke(PC_set0_2)
-        dut.io.updateTarget.poke(Tar_Add0_2)
-        dut.io.mispredicted.poke(0.U)
-        dut.clock.step(1)
-        dut.io.update.poke(0.U)
-
-        // check if set0_2 is available
-        dut.io.PC.poke(PC_set0_2)
-        dut.clock.step(1)
-        dut.io.valid.expect(1.U)
-        dut.io.target.expect(Tar_Add0_2)
-        dut.clock.step(1)
-
-        // check if set0_0 is not available
-        dut.io.PC.poke(PC_set0_0)
-        dut.clock.step(1)
-        dut.io.valid.expect(0.U)
         dut.clock.step(1) 
+        dut.io.update.poke(0.U)               // not allow update                    
+        dut.io.PC.poke(PC_2)                  // set PC with written entry before
+        dut.clock.step(1)                     // wait 1 cycle to get outputs of btb
+        dut.io.valid.expect(1.U)              // check valid
+        dut.io.target.expect(Tar_Add_2)       // check Target address
 
-
+        // check the first entry, it should be evicted already
+        dut.clock.step(1)
+        dut.io.PC.poke(PC_0)                  // set PC with least used instruction address in the set in btb
+        dut.clock.step(1)   
+        dut.io.valid.expect(0.U)              // it should be evicted
+        dut.clock.step(1)
+      }     
     }
   } 
 }
