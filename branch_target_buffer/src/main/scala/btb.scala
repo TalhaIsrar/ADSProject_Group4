@@ -307,11 +307,11 @@ class btb extends Module{
   // If entry is new value then initialize it with strongNotTaken(00) before passing to FSM
   // FSM will decide on base of old value and mispredicted, the new prediction for the address
   // FSM is using dynamic 2 bit predictor
-  fsm_branch1.io.currentState := Mux(new_entry_check, 0.U, update_fsm1)
+  fsm_branch1.io.currentState := Mux(insert_branch1, 0.U, update_fsm1)
   fsm_branch1.io.input        := (io.mispredicted).asBool
   write_fsm1 := fsm_branch1.io.nextState
 
-  fsm_branch2.io.currentState := Mux(new_entry_check, 0.U, update_fsm2)
+  fsm_branch2.io.currentState := Mux(!insert_branch2, 0.U, update_fsm2)
   fsm_branch2.io.input        := (io.mispredicted).asBool
   write_fsm2 := fsm_branch2.io.nextState
 
