@@ -309,11 +309,11 @@ class btb extends Module{
   // FSM is using dynamic 2 bit predictor
   fsm_branch1.io.currentState := Mux(insert_branch1, 0.U, update_fsm1)
   fsm_branch1.io.input        := (io.mispredicted).asBool
-  write_fsm1 := fsm_branch1.io.nextState
+  write_fsm1 := Mux(take_branch1, fsm_branch1.io.nextState, update_fsm1)
 
   fsm_branch2.io.currentState := Mux(!insert_branch2, 0.U, update_fsm2)
   fsm_branch2.io.input        := (io.mispredicted).asBool
-  write_fsm2 := fsm_branch2.io.nextState
+  write_fsm2 := Mux(take_branch2, fsm_branch2.io.nextState, update_fsm2)
 
   // Initialize the final set which we have to replace in BTB file
   // Set is formed from concationation of all results calculated above

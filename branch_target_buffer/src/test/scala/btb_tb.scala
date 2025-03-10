@@ -81,7 +81,7 @@ class btbTester extends AnyFlatSpec with ChiselScalatestTester {
           dut.io.update.poke(0.U)               // not allow update
           dut.io.predictedTaken.expect(1.U)     // btb is in strongTaken
 
-          // run instruction for 2 times more with mispredict, then btb should be in strongTaken
+          // run instruction for 2 times more with mispredict, then btb should be in strongNotTaken
           dut.clock.step(1)
           dut.io.update.poke(1.U)               // set updating btb
           dut.clock.step(1)
